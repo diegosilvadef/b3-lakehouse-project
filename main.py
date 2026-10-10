@@ -6,17 +6,19 @@ def run_pipeline():
     print("=== INICIANDO PIPELINE DE COTAÇÕES DA B3 (YFINANCE) ===")
 
     try:
-        # 1. Extração (Pega os últimos x dias úteis)
-        df_dim, df_fato = extrair_dados_b3(period="1d")
+        # 1. Extração dos dados (com base na lista fixa definida em config.py)
+        df_dim, df_fato = extrair_dados_b3(period="5d")
 
-        # print(df_dim.head(5))
-        # print("--------------------------------")
-        # print(df_fato.head(5))
+        if df_dim.empty or df_fato.empty:
+            print("⚠️  Nenhum dado retornado pela extração.")
+            return
 
-        # 2. Atualização da Dimensão
+        print(f"✅ Extração concluída. Dimensão: {len(df_dim)} registros, Fato: {len(df_fato)} registros.")
+
+        # 2. Atualização da Dimensão (Insere novos tickers se necessário)
         atualizar_dimensao_acao(df_dim)
 
-        # 3. Carga Incremental na Fato
+        # 3. Carga Incremental na Fato (Evita duplicação de cotações já gravadas)
         carregar_fato_acao(df_fato)
 
         print("=== PIPELINE FINALIZADO COM SUCESSO ===")

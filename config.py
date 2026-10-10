@@ -29,14 +29,5 @@ odbc_str = (
 
 DATABASE_URL = f"mssql+pyodbc:///?odbc_connect={quote_plus(odbc_str)}"
 
-# Lista padrão de papéis da B3 para monitoramento (extensão .SA é obrigatória no Yahoo Finance)
-TICKERS_B3 = [
-    "PETR4.SA",
-    "VALE3.SA",
-    "ITUB4.SA",
-    "BBDC4.SA",
-    "ABEV3.SA",
-    "BBAS3.SA",
-    "RENT3.SA",
-    "WEGE3.SA",
-]
+# Lista fixa dos principais papéis da B3
+TICKERS_B3 = ["PETR4.SA", "VALE3.SA", "ITUB4.SA", "BBDC4.SA", "ABEV3.SA"]
