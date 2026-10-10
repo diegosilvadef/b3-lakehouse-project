@@ -1,74 +1,50 @@
 # B3 Lakehouse Project
 
-Pipeline de dados para ingestao incremental de cotacoes de acoes negociadas na B3, com armazenamento analitico no Azure SQL Database.
+Pipeline Python para extrair cotacoes recentes de acoes negociadas na B3 pelo Yahoo Finance (`yfinance`) e carrega-las no Azure SQL Database. A persistencia separa os metadados dos ativos das cotacoes e evita inserir novamente uma chave `(ticker, data_referencia)` ja existente.
 
-O projeto combina dados de mercado obtidos via `yfinance` com um modelo dimensional simples, separando o cadastro dos ativos da serie historica de cotacoes. A carga pode ser executada repetidamente sem duplicar registros ja persistidos.
-
-## Visao geral
+## Como funciona
 
 ```mermaid
 flowchart LR
-    A[Yahoo Finance<br/>yfinance] --> B[Extracao<br/>metadados + cotacoes]
+    A[Tickers em config.py] --> B[Yahoo Finance via yfinance]
     B --> C[DataFrames pandas]
-    C --> D{Persistencia incremental}
-    D --> E[(dbo.dim_acao)]
-    D --> F[(dbo.fato_cotacao_acao)]
-    E --> G[Azure SQL Database]
-    F --> G
+    C --> D[Atualiza dimensao]
+    C --> E[Filtra cotacoes novas]
+    D --> F[(dbo.dim_acao)]
+    E --> G[(dbo.fato_cotacao_acao)]
+    F --> H[Azure SQL Database]
+    G --> H
 ```
 
-### Fluxo do pipeline
+1. `main.py` inicia a extracao para os tickers definidos em `config.py`.
+2. `extractor.py` baixa os precos dos ultimos cinco dias e consulta os metadados de cada ativo.
+3. `database.py` insere na dimensao apenas tickers que ainda nao existem.
+4. As cotacoes sao comparadas com as chaves existentes na tabela fato; apenas as novas sao inseridas.
 
-1. A lista de tickers e lida de `config.py`.
-2. O modulo `extractor.py` consulta metadados e historico de precos no Yahoo Finance.
-3. Os metadados dos ativos sao inseridos em `dbo.dim_acao` somente quando o ticker ainda nao existe.
-4. As cotacoes sao comparadas com os registros existentes por `(ticker, data_referencia)`.
-5. Apenas cotacoes novas sao gravadas em `dbo.fato_cotacao_acao`.
-
-## Principais recursos
-
-- Extracao de dados de mercado com `yfinance`.
-- Modelo dimensional com dimensao de ativos e tabela fato de cotacoes.
-- Carga incremental para evitar duplicidades em execucoes recorrentes.
-- Tratamento de falhas por ticker, permitindo que a extracao continue para os demais ativos.
-- Conexao parametrizada com Azure SQL Database usando variaveis de ambiente.
-- Estrutura pequena e modular, adequada para evoluir para uma rotina agendada ou uma camada de consumo analitico.
-
-## Tecnologias
-
-- Python 3.10+ (o projeto usa anotacoes como `list[str]`).
-- `pandas` para transformacao dos dados.
-- `yfinance` para consulta ao Yahoo Finance.
-- `SQLAlchemy` e `pyodbc` para persistencia em SQL Server.
-- Azure SQL Database como destino.
-
-## Estrutura do projeto
+## Estrutura
 
 ```text
 b3-lakehouse-project/
-├── config.py                 # Configuracoes e lista de tickers
-├── database.py               # Conexao e cargas incremental/dimensional
-├── extractor.py              # Extracao e normalizacao via yfinance
-├── main.py                   # Orquestracao do pipeline
-├── requirements.txt          # Dependencias Python fixadas
-├── lakehouse_notebooks/      # Espaco para analises e notebooks
-├── .env                      # Credenciais locais, nao versionar
+├── config.py          # Variaveis de ambiente e tickers monitorados
+├── database.py        # Conexao e persistencia no Azure SQL
+├── extractor.py       # Extracao e normalizacao via yfinance
+├── main.py            # Orquestracao do pipeline
+├── requirements.txt   # Dependencias Python fixadas
 └── README.md
 ```
 
-## Pre-requisitos
+## Requisitos
 
 - Python 3.10 ou superior.
-- Acesso a um Azure SQL Database.
-- ODBC Driver 17 for SQL Server instalado na maquina.
-- As tabelas `dbo.dim_acao` e `dbo.fato_cotacao_acao` criadas antes da primeira execucao.
-- Permissao de leitura e escrita no schema `dbo`.
+- Azure SQL Database acessivel com permissao de leitura e escrita no schema `dbo`.
+- ODBC Driver 17 for SQL Server instalado.
+- As tabelas `dbo.dim_acao` e `dbo.fato_cotacao_acao` devem existir antes da execucao.
 
-> O repositorio atualmente nao inclui scripts DDL. O contrato minimo esperado para as tabelas esta descrito abaixo.
+O repositorio nao inclui scripts DDL. O contrato de colunas esperado esta descrito abaixo.
 
 ## Configuracao
 
-Crie um arquivo `.env` na raiz do projeto. Nunca publique credenciais reais no repositorio.
+Crie um arquivo `.env` na raiz do projeto e mantenha credenciais fora do controle de versao:
 
 ```env
 AZURE_SQL_SERVER=seu-servidor.database.windows.net
@@ -77,19 +53,19 @@ AZURE_SQL_USER=seu-usuario
 AZURE_SQL_PASSWORD=sua-senha
 ```
 
-Para alterar os ativos monitorados, edite `TICKERS_B3` em `config.py`. Os simbolos devem usar o sufixo `.SA`, no formato aceito pelo Yahoo Finance, por exemplo `PETR4.SA`.
+Os tickers configurados atualmente sao `PETR4.SA`, `VALE3.SA`, `ITUB4.SA`, `BBDC4.SA` e `ABEV3.SA`. Altere a lista `TICKERS_B3` em `config.py` para incluir ou remover ativos. Use o sufixo `.SA` aceito pelo Yahoo Finance.
 
-## Contrato das tabelas
+## Tabelas esperadas
 
 ### `dbo.dim_acao`
 
 | Coluna | Descricao |
 | --- | --- |
 | `ticker` | Simbolo do ativo, por exemplo `PETR4.SA` |
-| `nome_empresa` | Nome longo ou curto retornado pelo provedor |
-| `setor` | Setor da empresa, quando disponivel |
-| `industria` | Industria da empresa, quando disponivel |
-| `moeda` | Moeda da cotacao, normalmente `BRL` |
+| `nome_empresa` | Nome longo, nome curto ou ticker como fallback |
+| `setor` | Setor informado pelo provedor |
+| `industria` | Industria informada pelo provedor |
+| `moeda` | Moeda informada pelo provedor; usa `BRL` como fallback |
 
 ### `dbo.fato_cotacao_acao`
 
@@ -98,44 +74,40 @@ Para alterar os ativos monitorados, edite `TICKERS_B3` em `config.py`. Os simbol
 | `ticker` | Simbolo do ativo |
 | `preco_abertura` | Preco de abertura |
 | `preco_fechamento` | Preco de fechamento |
-| `preco_maximo` | Maior preco do periodo |
-| `preco_minimo` | Menor preco do periodo |
+| `preco_maximo` | Maior preco do dia |
+| `preco_minimo` | Menor preco do dia |
 | `volume_negociado` | Volume negociado |
-| `data_referencia` | Data da cotacao no formato `YYYY-MM-DD` |
+| `data_referencia` | Data da cotacao, no formato `YYYY-MM-DD` |
 
-Recomenda-se uma chave unica ou indice composto em `fato_cotacao_acao` para `(ticker, data_referencia)`, reforcando no banco a regra de idempotencia usada pela aplicacao.
+Uma restricao ou indice unico em `(ticker, data_referencia)` na tabela fato e recomendado para reforcar a idempotencia no banco.
 
 ## Instalacao e execucao
 
-No PowerShell:
+No PowerShell, a partir da pasta do projeto:
 
 ```powershell
-cd b3-lakehouse-project
-
 python -m venv venv
 .\venv\Scripts\Activate.ps1
-
 pip install -r requirements.txt
 python main.py
 ```
 
-Uma execucao bem-sucedida exibe mensagens de inicio, quantidade de registros extraidos, atualizacao da dimensao e conclusao da carga incremental.
+O pipeline imprime o andamento da extracao e da carga no terminal. A janela de extracao e definida como `5d` em `main.py`.
 
-## Decisoes de projeto
+## Comportamento e limitacoes
 
-- **Dimensao e fato separadas:** facilita consultas analiticas e evita repetir metadados da empresa em cada cotacao.
-- **Carga incremental:** antes de inserir dados, o pipeline consulta as chaves `(ticker, data_referencia)` ja existentes.
-- **Configuracao por ambiente:** credenciais ficam fora do codigo e sao carregadas com `python-dotenv`.
-- **Falha isolada por ativo:** um erro ao consultar um ticker e reportado sem interromper automaticamente a tentativa dos demais.
+- Os metadados da dimensao sao inseridos apenas para tickers novos; os dados de um ticker existente nao sao atualizados.
+- A carga da tabela fato e incremental por `(ticker, data_referencia)`. Uma cotacao ja existente nao e atualizada se o provedor corrigir seus valores posteriormente.
+- Falhas ao processar um ticker sao reportadas e a extracao tenta continuar com os demais.
+- Se a extracao retornar uma das tabelas vazia, `main.py` encerra a execucao sem carregar nenhuma delas.
+- O tratamento de erro principal apenas imprime a excecao; a execucao pode terminar sem codigo de saida diferente de zero mesmo quando o pipeline falha.
+- As tabelas sao pre-requisitos: este projeto nao cria nem versiona o schema SQL.
 
-## Limites atuais e proximos passos
+## Tecnologias
 
-- Adicionar scripts de criacao e versionamento do schema SQL.
-- Criar testes automatizados para extracao, deduplicacao e persistencia.
-- Substituir o tratamento baseado em `print` por logging estruturado e metricas de execucao.
-- Agendar a rotina com Airflow, Azure Functions ou outro orquestrador.
-- Adicionar uma camada de consumo, como um dashboard de desempenho dos ativos.
+- Python 3.10+
+- `pandas` e `yfinance`
+- `SQLAlchemy` e `pyodbc`
+- Azure SQL Database
 
-## Observacoes
-
-Os dados sao fornecidos pelo Yahoo Finance por meio do `yfinance`. A disponibilidade, granularidade e qualidade dos dados dependem do provedor e das condicoes de mercado. O projeto tem finalidade educacional e de portfolio; valide requisitos de uso e licenciamento antes de utiliza-lo em producao.
+Os dados dependem da disponibilidade e qualidade do Yahoo Finance. O projeto tem finalidade educacional e de portfolio; valide os requisitos de uso e licenciamento antes de utiliza-lo em producao.
