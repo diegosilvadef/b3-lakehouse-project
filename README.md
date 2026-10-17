@@ -1,19 +1,18 @@
 # B3 Lakehouse Project
 
-Pipeline Python para extrair cotacoes recentes de acoes negociadas na B3 pelo Yahoo Finance (`yfinance`) e carrega-las no Azure SQL Database. A persistencia separa os metadados dos ativos das cotacoes e evita inserir novamente uma chave `(ticker, data_referencia)` ja existente.
+Projeto de dados da B3 em transicao para uma arquitetura lakehouse no Databricks. O pipeline Python atual extrai cotacoes recentes pelo Yahoo Finance (`yfinance`) e carrega os dados no Azure SQL Database; a pasta `notebooks_lakehouse/` inicia a organizacao das futuras camadas Bronze, Silver e Gold.
 
 ## Como funciona
 
 ```mermaid
 flowchart LR
     A[Tickers em config.py] --> B[Yahoo Finance via yfinance]
-    B --> C[DataFrames pandas]
-    C --> D[Atualiza dimensao]
-    C --> E[Filtra cotacoes novas]
-    D --> F[(dbo.dim_acao)]
-    E --> G[(dbo.fato_cotacao_acao)]
-    F --> H[Azure SQL Database]
-    G --> H
+    B --> C[Pipeline Python atual]
+    C --> D[(Azure SQL Database)]
+    E[Databricks: notebooks_lakehouse] --> F[Bronze]
+    F --> G[Silver]
+    G --> H[Gold]
+    I[Azure Data Lake Storage] --- E
 ```
 
 1. `main.py` inicia a extracao para os tickers definidos em `config.py`.
@@ -25,13 +24,30 @@ flowchart LR
 
 ```text
 b3-lakehouse-project/
-├── config.py          # Variaveis de ambiente e tickers monitorados
-├── database.py        # Conexao e persistencia no Azure SQL
-├── extractor.py       # Extracao e normalizacao via yfinance
-├── main.py            # Orquestracao do pipeline
-├── requirements.txt   # Dependencias Python fixadas
+├── config.py                 # Variaveis de ambiente e tickers monitorados
+├── database.py               # Conexao e persistencia no Azure SQL
+├── extractor.py              # Extracao e normalizacao via yfinance
+├── main.py                   # Orquestracao do pipeline Python atual
+├── notebooks_lakehouse/
+│   ├── 01_storage_location.ipynb  # Storage Location e schemas das camadas
+│   ├── 02_bronze.ipynb            # Entrada bruta (em desenvolvimento)
+│   ├── 03_silver.ipynb            # Tratamento e qualidade (em desenvolvimento)
+│   └── 04_gold.ipynb              # Dados analiticos (em desenvolvimento)
+├── requirements.txt          # Dependencias Python do pipeline atual
 └── README.md
 ```
+
+## Lakehouse no Databricks
+
+A evolucao planejada organiza os dados em camadas Medallion no Databricks, com armazenamento no Azure Data Lake Storage:
+
+- **Bronze:** persistir os dados de origem com poucas alteracoes, preservando o historico bruto.
+- **Silver:** limpar, tipar, validar e deduplicar os dados para consumo confiavel.
+- **Gold:** disponibilizar tabelas agregadas ou modeladas para analises de mercado.
+
+Os notebooks estao numerados na ordem sugerida de execucao. No estado atual, `01_storage_location.ipynb` contem comandos SQL iniciais para criar uma External Location e os schemas das tres camadas. O notebook usa valores de exemplo (`training`, `ipca_geral` e `<storage-account>`) que devem ser substituidos e ajustados para o ambiente e os dados da B3. Os notebooks Bronze, Silver e Gold ainda estao vazios; portanto, as transformacoes lakehouse ainda nao foram implementadas. O pipeline Python/Azure SQL descrito neste README permanece independente dessa estrutura inicial.
+
+Para executar os comandos de configuracao, abra o notebook no workspace Databricks com as permissoes necessarias no Unity Catalog. A Storage Credential `main` referenciada no SQL deve existir, e a identidade usada precisa ter acesso ao Azure Data Lake Storage e permissao para criar a External Location e os schemas. Nao versione tokens, chaves ou credenciais no notebook.
 
 ## Requisitos
 
