@@ -7,7 +7,7 @@ def run_pipeline():
 
     try:
         # 1. Extração dos dados (com base na lista fixa definida em config.py)
-        df_dim, df_fato = extrair_dados_b3(period="5d")
+        df_dim, df_fato = extrair_dados_b3(period="1d")
 
         if df_dim.empty or df_fato.empty:
             print("⚠️  Nenhum dado retornado pela extração.")
