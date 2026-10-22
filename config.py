@@ -29,11 +29,6 @@ odbc_str = (
 
 DATABASE_URL = f"mssql+pyodbc:///?odbc_connect={quote_plus(odbc_str)}"
 
-# Lista fixa dos principais papéis da B3
-<<<<<<< Updated upstream
-TICKERS_B3 = ["PETR4.SA", "VALE3.SA", "ITUB4.SA", "BBDC4.SA", "ABEV3.SA"]
-=======
-# Lista ampliada dos principais papéis da B3 (Blue Chips e Mid Caps líquidas)
 # Lista revisada de papéis altamente líquidos e com histórico robusto no yfinance
 # Lista 100% validada de ativos altamente líquidos e estáveis no yfinance
 TICKERS_B3 = [
@@ -65,4 +60,3 @@ TICKERS_B3 = [
     # Papel e celulose
     "SUZB3.SA",  # Suzano
 ]
->>>>>>> Stashed changes
