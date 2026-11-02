@@ -29,34 +29,5 @@ odbc_str = (
 
 DATABASE_URL = f"mssql+pyodbc:///?odbc_connect={quote_plus(odbc_str)}"
 
-# Lista revisada de papéis altamente líquidos e com histórico robusto no yfinance
-# Lista 100% validada de ativos altamente líquidos e estáveis no yfinance
-TICKERS_B3 = [
-    # Bancos e setor financeiro
-    "ITUB4.SA",  # Itaú Unibanco
-    "BBDC4.SA",  # Bradesco
-    "BBAS3.SA",  # Banco do Brasil
-    "SANB11.SA", # Santander Brasil
-    "BPAC11.SA", # BTG Pactual
-
-    # Petróleo, gás e mineração
-    "PETR4.SA",  # Petrobras
-    "VALE3.SA",  # Vale
-    "PRIO3.SA",  # PRIO
-    "CSNA3.SA",  # CSN
-
-    # Consumo, varejo e alimentos
-    "ABEV3.SA",  # Ambev
-    "RENT3.SA",  # Localiza
-    "RADL3.SA",  # Raia Drogasil
-    "JBSS32.SA", # JBS N.V. (BDR)
-
-    # Saneamento e energia elétrica
-    "WEGE3.SA",  # WEG
-    "EGIE3.SA",  # Engie Brasil
-    "CMIG4.SA",  # Cemig
-    "SBSP3.SA",  # Sabesp
-
-    # Papel e celulose
-    "SUZB3.SA",  # Suzano
-]
+# Lista fixa dos principais papéis da B3 #
+TICKERS_B3 = ["PETR4.SA", "VALE3.SA", "ITUB4.SA", "BBDC4.SA", "ABEV3.SA"]
