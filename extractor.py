@@ -4,7 +4,7 @@ from config import TICKERS_B3
 
 
 def extrair_dados_b3(
-    tickers: list[str] = TICKERS_B3, period: str = "5d"
+    tickers: list[str] = TICKERS_B3, period: str = "1d"
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Extrai metadados e histórico de preços das ações da B3 usando yfinance.
 
